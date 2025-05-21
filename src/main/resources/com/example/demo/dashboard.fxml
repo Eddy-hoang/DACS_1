@@ -50,7 +50,7 @@
                   </AnchorPane>
                </top>
                <left>
-                  <AnchorPane prefHeight="200.0" prefWidth  ="200.0" BorderPane.alignment="CENTER">
+                  <AnchorPane prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
                      <children>
                         <AnchorPane prefHeight="554.6666666666666" prefWidth="200.0" styleClass="nav-form" stylesheets="@Dashboard.css" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
                            <children>
@@ -255,7 +255,7 @@
                                                 <TableColumn fx:id="addEmployee_col_date" prefWidth="115.3333740234375" text="Date Member" />
                                             </columns>
                                           </TableView>
-                                          <TextField fx:id="addEmployee_search" layoutX="14.0" layoutY="14.0" prefHeight="30.0" prefWidth="243.0" promptText="Search" styleClass="search" stylesheets="@Dashboard.css" />
+                                          <TextField fx:id="addEmployee_search" layoutX="14.0" layoutY="14.0" onKeyTyped="#addEmployeeSearch" prefHeight="30.0" prefWidth="243.0" promptText="Search" styleClass="search" stylesheets="@Dashboard.css" />
                                           <FontAwesomeIconView glyphName="SEARCH" layoutX="24.0" layoutY="33.0" size="1.5EM" />
                                        </children>
                                     </AnchorPane>

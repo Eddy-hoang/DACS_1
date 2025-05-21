@@ -2,6 +2,8 @@ package com.example.demo;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -130,19 +132,19 @@ public class dashboardController implements Initializable {
     private Button salary_btn;
 
     @FXML
-    private TableColumn<?, ?> salary_col_employeeID;
+    private TableColumn<employeeData, String> salary_col_employeeID;
 
     @FXML
-    private TableColumn<?, ?> salary_col_firstName;
+    private TableColumn<employeeData, String> salary_col_firstName;
 
     @FXML
-    private TableColumn<?, ?> salary_col_lastName;
+    private TableColumn<employeeData, String> salary_col_lastName;
 
     @FXML
-    private TableColumn<?, ?> salary_col_position;
+    private TableColumn<employeeData, String> salary_col_position;
 
     @FXML
-    private TableColumn<?, ?> salary_col_salary;
+    private TableColumn<employeeData, String> salary_col_salary;
 
     @FXML
     private TextField salary_employeeID;
@@ -163,7 +165,7 @@ public class dashboardController implements Initializable {
     private TextField salary_salary;
 
     @FXML
-    private TableView<?> salary_tableView;
+    private TableView<employeeData> salary_tableView;
 
     @FXML
     private Button salary_updateBtn;
@@ -180,6 +182,54 @@ public class dashboardController implements Initializable {
     private ResultSet result;
 
     private Image image;
+
+    public void addEmployeeSearch() {
+        // Đảm bảo addEmployeeList đã được khởi tạo
+        if (addEmployeeList == null) {
+            addEmployeeList = addEmployeeListData();
+        }
+
+        FilteredList<employeeData> filteredList = new FilteredList<>(addEmployeeList, e -> true);
+
+        addEmployee_search.textProperty().addListener((observable, oldValue, newValue) -> {
+            String lowerCaseFilter = (newValue == null) ? "" : newValue.toLowerCase().trim();
+
+            filteredList.setPredicate(employee -> {
+                if (lowerCaseFilter.isEmpty()) {
+                    return true; // Hiển thị tất cả nếu ô tìm kiếm trống
+                }
+
+                // Kiểm tra từng trường
+                if (String.valueOf(employee.getEmployeeId()).toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                if (employee.getFirstName().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                if (employee.getLastName().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                if (employee.getGender().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                if (employee.getPhoneNum().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                if (employee.getPosition().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                if (employee.getDate().toString().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                return false; // Không khớp với bất kỳ trường nào
+            });
+
+            // Cập nhật TableView với dữ liệu đã lọc
+            SortedList<employeeData> sortedList = new SortedList<>(filteredList);
+            sortedList.comparatorProperty().bind(addEmployee_tableView.comparatorProperty());
+            addEmployee_tableView.setItems(sortedList);
+        });
+    }
 
     public void addEmployeeAdd() {
         Date date = new Date();
@@ -251,6 +301,7 @@ public class dashboardController implements Initializable {
         }
     }
 
+
     public void addEmployeeUpdate() {
 
         String uri = getData.path;
@@ -295,27 +346,12 @@ public class dashboardController implements Initializable {
                     statement = connect.createStatement();
                     statement.executeUpdate(sql);
 
-//                    double salary = 0;
 
                     String checkData = "SELECT * FROM employee WHERE employee_id = '"
                             + addEmployee_employeeID.getText() + "'";
 
                     prepare = connect.prepareStatement(checkData);
                     result = prepare.executeQuery();
-
-//                    while (result.next()) {
-//                        salary = result.getDouble("salary");
-//                    }
-
-//                    String updateInfo = "UPDATE employee SET firstName = '"
-//                            + addEmployee_firstName.getText() + "', lastName = '"
-//                            + addEmployee_lastName.getText() + "', position = '"
-//                            + addEmployee_position.getSelectionModel().getSelectedItem()
-//                            + "' WHERE employee_id = '"
-//                            + addEmployee_employeeID.getText() + "'";
-//
-//                    prepare = connect.prepareStatement(updateInfo);
-//                    prepare.executeUpdate();
 
                     alert = new Alert(Alert.AlertType.INFORMATION);
                     alert.setTitle("Information Message");
@@ -337,51 +373,47 @@ public class dashboardController implements Initializable {
 
 
     public void addEmployeeDelete() {
-        String sql = "DELETE FROM employee WHERE employee_id'"
-                + addEmployee_employeeID.getText() + "'";
-        connect = database.connectDB();
+        String sql = "DELETE FROM employee WHERE employee_id = ?";
+        try (Connection connect = database.connectDB();
+             PreparedStatement preparedStatement = connect.prepareStatement(sql)) {
 
-        try {
             Alert alert;
-            if (addEmployee_employeeID.getText().isEmpty()
-                    || addEmployee_firstName.getText().isEmpty()
-                    || addEmployee_lastName.getText().isEmpty()
-                    || addEmployee_gender.getSelectionModel().getSelectedItem() == null
-                    || addEmployee_phoneNum.getText().isEmpty()
-                    || addEmployee_position.getSelectionModel().getSelectedItem() == null
-                    || getData.path == null || getData.path == "") {
+            // Chỉ kiểm tra trường employee_id
+            if (addEmployee_employeeID.getText().isEmpty()) {
                 alert = new Alert(Alert.AlertType.ERROR);
                 alert.setTitle("Error Message");
                 alert.setHeaderText(null);
-                alert.setContentText("Please fill all blank fields");
+                alert.setContentText("Please enter employee ID");
                 alert.showAndWait();
-            } else {
-                alert = new Alert(Alert.AlertType.CONFIRMATION);
-                alert.setTitle("Cofirnation Message");
+                return;
+            }
+
+            // Hiển thị hộp thoại xác nhận
+            alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle("CONFIRMATION MESSAGE");
+            alert.setHeaderText(null);
+            alert.setContentText("Are you sure you want to DELETE Employee ID: " + addEmployee_employeeID.getText() + "?");
+            Optional<ButtonType> option = alert.showAndWait();
+
+            if (option.isPresent() && option.get() == ButtonType.OK) {
+                preparedStatement.setString(1, addEmployee_employeeID.getText());
+                preparedStatement.executeUpdate();
+
+                // Hiển thị thông báo thành công
+                alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Message");
                 alert.setHeaderText(null);
-                alert.setContentText("Are you sure DELETE Employee ID: " + addEmployee_employeeID.getText() + "?");
+                alert.setContentText("Successfully Delete!");
                 alert.showAndWait();
-                Optional<ButtonType> option = alert.showAndWait();
 
-                if (option.get().equals(ButtonType.OK)) {
-                    statement = connect.createStatement();
-                    statement.executeUpdate(sql);
-
-                    alert = new Alert(Alert.AlertType.INFORMATION);
-                    alert.setTitle("Informetion Message");
-                    alert.setHeaderText(null);
-                    alert.setContentText("Successfully Deleted!");
-                    alert.showAndWait();
-
-                    addEmployeeShowListData();
-                    addEmployeeResset();
-                }
+                // Làm mới giao diện
+                addEmployeeShowListData();
+                addEmployeeResset();
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
     public void addEmployeeResset() {
         addEmployee_employeeID.setText("");
         addEmployee_firstName.setText("");
@@ -462,8 +494,10 @@ public class dashboardController implements Initializable {
     private ObservableList<employeeData> addEmployeeList;
 
     public void addEmployeeShowListData() {
+        // Lấy dữ liệu từ cơ sở dữ liệu
         addEmployeeList = addEmployeeListData();
 
+        // Gắn các cột với thuộc tính của employeeData
         addEmployee_col_employeeID.setCellValueFactory(new PropertyValueFactory<>("employeeId"));
         addEmployee_col_firstName.setCellValueFactory(new PropertyValueFactory<>("firstName"));
         addEmployee_col_lastName.setCellValueFactory(new PropertyValueFactory<>("lastName"));
@@ -472,8 +506,11 @@ public class dashboardController implements Initializable {
         addEmployee_col_position.setCellValueFactory(new PropertyValueFactory<>("position"));
         addEmployee_col_date.setCellValueFactory(new PropertyValueFactory<>("date"));
 
+        // Hiển thị dữ liệu lên TableView
         addEmployee_tableView.setItems(addEmployeeList);
 
+        // Gọi hàm tìm kiếm để đảm bảo bộ lọc được áp dụng ngay sau khi hiển thị dữ liệu
+        addEmployeeSearch();
     }
 
     public void addEmployeeSelect() {
@@ -492,6 +529,51 @@ public class dashboardController implements Initializable {
 
         image = new Image(uri, 134, 164, false, true);
         addEmployee_image.setImage(image);
+    }
+
+    public ObservableList<employeeData> salaryListData() {
+
+        ObservableList<employeeData> listData = FXCollections.observableArrayList();
+
+        String sql = "SELECT * FROM employee_info";
+
+        connect = database.connectDB();
+
+        try {
+            prepare = connect.prepareStatement(sql);
+            result = prepare.executeQuery();
+
+            employeeData employeeD;
+
+            while (result.next()) {
+                employeeD = new employeeData(result.getInt("employee_id"),
+                        result.getString("firstName"),
+                        result.getString("lastName"),
+                        result.getString("position"),
+                        result.getDouble("salary"));
+
+                listData.add(employeeD);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return listData;
+    }
+
+    public ObservableList<employeeData> salaryList;
+
+    public void salaryShowListData() {
+        salaryList = salaryListData();
+
+        salary_col_employeeID.setCellValueFactory(new PropertyValueFactory<>("employeeId"));
+        salary_col_firstName.setCellValueFactory(new PropertyValueFactory<>("firstName"));
+        salary_col_lastName.setCellValueFactory(new PropertyValueFactory<>("lastName"));
+        salary_col_position.setCellValueFactory(new PropertyValueFactory<>("position"));
+        salary_col_salary.setCellValueFactory(new PropertyValueFactory<>("salary"));
+
+        salary_tableView.setItems(salaryList);
+
     }
 
 
@@ -517,8 +599,12 @@ public class dashboardController implements Initializable {
             home_btn.setStyle("-fx-background-color: transparent;");
             salary_btn.setStyle("-fx-background-color: transparent;");
 
-            addEmployeePositionList();
+            // Khởi tạo danh sách giới tính và vị trí
             addEmployeeGenderList();
+            addEmployeePositionList();
+
+            // Hiển thị dữ liệu (đã bao gồm gọi addEmployeeSearch())
+            addEmployeeShowListData();
         } else if (event.getSource() == salary_btn) {
             home_form.setVisible(false);
             addEmployee_form.setVisible(false);
@@ -527,6 +613,8 @@ public class dashboardController implements Initializable {
             salary_btn.setStyle("-fx-background-color: linear-gradient(to bottom right, #23278f96, #2d645f);");
             home_btn.setStyle("-fx-background-color: transparent;");
             addEmployee_btn.setStyle("-fx-background-color: transparent;");
+
+            salaryShowListData();
         }
     }
 
@@ -583,8 +671,15 @@ public class dashboardController implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        addEmployeeShowListData();
+        displayUsername();
+
+        // Khởi tạo danh sách vị trí và giới tính
         addEmployeePositionList();
         addEmployeeGenderList();
+
+        // Hiển thị dữ liệu và áp dụng bộ lọc
+        addEmployeeShowListData();
+
+        salaryShowListData();
     }
 }
