@@ -4,7 +4,7 @@ import java.security.MessageDigest;
 
 public class HashUtils {
     public static void main(String[] args) {
-        String password = "123456";
+        String password = "1";
         String hashed = hashSHA256(password);
         System.out.println("SHA-256 if 123456: "+hashed);
     }

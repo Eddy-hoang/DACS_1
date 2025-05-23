@@ -100,7 +100,7 @@
                <center>
                   <AnchorPane prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
                      <children>
-                        <AnchorPane fx:id="salary_form" prefHeight="551.3333333333334" prefWidth="897.3333333333334" visible="false" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                        <AnchorPane fx:id="salary_form" prefHeight="551.3333333333334" prefWidth="897.3333333333334" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
                            <children>
                               <AnchorPane layoutX="14.0" layoutY="15.0" prefHeight="521.0" prefWidth="285.0" stylesheets="@Dashboard.css">
                                  <styleClass>
@@ -138,8 +138,8 @@
                                        </font>
                                     </Label>
                                     <TextField fx:id="salary_salary" layoutX="107.0" layoutY="184.0" prefHeight="25.0" prefWidth="150.0" styleClass="textfield" stylesheets="@Dashboard.css" />
-                                    <Button fx:id="salary_updateBtn" layoutX="165.0" layoutY="248.0" mnemonicParsing="false" prefHeight="44.0" prefWidth="92.0" styleClass="update-btn" stylesheets="@Dashboard.css" text="Update" />
-                                    <Button fx:id="salary_ClearBtn" layoutX="33.0" layoutY="248.0" mnemonicParsing="false" prefHeight="44.0" prefWidth="92.0" styleClass="clear-btn" stylesheets="@Dashboard.css" text="Clear" />
+                                    <Button fx:id="salary_updateBtn" layoutX="165.0" layoutY="248.0" mnemonicParsing="false" onAction="#salaryUpdate" prefHeight="44.0" prefWidth="92.0" styleClass="update-btn" stylesheets="@Dashboard.css" text="Update" />
+                                    <Button fx:id="salary_ClearBtn" layoutX="33.0" layoutY="248.0" mnemonicParsing="false" onAction="#salaryReset" prefHeight="44.0" prefWidth="92.0" styleClass="clear-btn" stylesheets="@Dashboard.css" text="Clear" />
                                  </children>
                               </AnchorPane>
                               <AnchorPane layoutX="317.0" layoutY="15.0" prefHeight="521.0" prefWidth="565.0" stylesheets="@Dashboard.css">
@@ -148,7 +148,7 @@
                                     <String fx:value="shadow" />
                                  </styleClass>
                                  <children>
-                                    <TableView fx:id="salary_tableView" layoutX="6.0" layoutY="5.0" prefHeight="512.0" prefWidth="554.0">
+                                    <TableView fx:id="salary_tableView" layoutX="6.0" layoutY="5.0" onMouseClicked="#salarySelect" prefHeight="512.0" prefWidth="554.0">
                                       <columns>
                                         <TableColumn fx:id="salary_col_employeeID" prefWidth="110.66668701171875" text="Employee ID" />
                                         <TableColumn fx:id="salary_col_firstName" prefWidth="120.0" text="First Name" />
@@ -234,7 +234,7 @@
                               </AnchorPane>
                            </children>
                         </AnchorPane>
-                        <AnchorPane fx:id="addEmployee_form" layoutX="72.0" layoutY="31.0" prefHeight="551.3333333333334" prefWidth="897.3333333333334" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                        <AnchorPane fx:id="addEmployee_form" layoutX="72.0" layoutY="31.0" prefHeight="551.3333333333334" prefWidth="897.3333333333334" visible="false" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
                            <children>
                               <AnchorPane layoutX="14.0" layoutY="12.0" prefHeight="528.0" prefWidth="869.0" stylesheets="@Dashboard.css">
                                  <children>

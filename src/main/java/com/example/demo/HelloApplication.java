@@ -12,6 +12,7 @@ import java.io.IOException;
 
 public class HelloApplication extends Application {
 
+
     private double x = 0;
     private double y = 0;
 
@@ -29,9 +30,9 @@ public class HelloApplication extends Application {
 
         root.setOnMouseDragged((MouseEvent event) ->{
             stage.setX(event.getScreenX() - x);
-            stage.setY(event.getScreenX() - y);
+            stage.setY(event.getScreenY() - y);
 
-            stage.setOpacity(.8);
+            stage.setOpacity(0.8);
         });
         root.setOnMouseReleased((MouseEvent even) ->{
             stage.setOpacity(1);

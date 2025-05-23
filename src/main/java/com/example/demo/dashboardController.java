@@ -1,5 +1,7 @@
 package com.example.demo;
 
+import com.example.demo.model.Session;
+import com.example.demo.network.EmployeeClient;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -11,6 +13,7 @@ import javafx.fxml.Initializable;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.chart.BarChart;
+import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
@@ -22,6 +25,7 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.sql.*;
 import java.util.*;
@@ -72,7 +76,7 @@ public class dashboardController implements Initializable {
     private AnchorPane addEmployee_form;
 
     @FXML
-    private ComboBox<?> addEmployee_gender;
+    private ComboBox<String> addEmployee_gender;
 
     @FXML
     private ImageView addEmployee_image;
@@ -87,7 +91,7 @@ public class dashboardController implements Initializable {
     private TextField addEmployee_phoneNum;
 
     @FXML
-    private ComboBox<?> addEmployee_position;
+    private ComboBox<String> addEmployee_position;
 
     @FXML
     private TextField addEmployee_search;
@@ -182,9 +186,101 @@ public class dashboardController implements Initializable {
     private ResultSet result;
 
     private Image image;
+    private EmployeeClient client;
+
+    public void homeChart() {
+
+        home_chart.getData().clear();
+
+        String sql = "SELECT date, COUNT(id) FROM employee GROUP BY date ORDER BY TIMESTAMP(date) ASC LIMIT 7";
+
+        connect = database.connectDB();
+
+        try {
+            XYChart.Series chart = new XYChart.Series();
+
+            prepare = connect.prepareStatement(sql);
+            result = prepare.executeQuery();
+
+            while (result.next()) {
+                chart.getData().add(new XYChart.Data(result.getString(1), result.getInt(2)));
+            }
+
+            home_chart.getData().add(chart);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public void homeTotalEmployees() {
+
+        String sql = "SELECT COUNT(id) FROM employee";
+
+        connect = database.connectDB();
+        int countData = 0;
+        try {
+
+            prepare = connect.prepareStatement(sql);
+            result = prepare.executeQuery();
+
+            while (result.next()) {
+                countData = result.getInt("COUNT(id)");
+            }
+
+            home_totalEmployees.setText(String.valueOf(countData));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public void homeEmployeeTotalPresent() {
+
+        String sql = "SELECT COUNT(id) FROM employee_info";
+
+        connect = database.connectDB();
+        int countData = 0;
+        try {
+            statement = connect.createStatement();
+            result = statement.executeQuery(sql);
+
+            while (result.next()) {
+                countData = result.getInt("COUNT(id)");
+            }
+            home_totalPresents.setText(String.valueOf(countData));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public void homeTotalInactive() {
+
+        String sql = "SELECT COUNT(id) FROM employee_info WHERE salary = '0.0'";
+
+        connect = database.connectDB();
+        int countData = 0;
+        try {
+            prepare = connect.prepareStatement(sql);
+            result = prepare.executeQuery();
+
+            while (result.next()) {
+                countData = result.getInt("COUNT(id)");
+            }
+            home_totalInactiveEm.setText(String.valueOf(countData));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
 
     public void addEmployeeSearch() {
-        // Đảm bảo addEmployeeList đã được khởi tạo
         if (addEmployeeList == null) {
             addEmployeeList = addEmployeeListData();
         }
@@ -196,10 +292,8 @@ public class dashboardController implements Initializable {
 
             filteredList.setPredicate(employee -> {
                 if (lowerCaseFilter.isEmpty()) {
-                    return true; // Hiển thị tất cả nếu ô tìm kiếm trống
+                    return true;
                 }
-
-                // Kiểm tra từng trường
                 if (String.valueOf(employee.getEmployeeId()).toLowerCase().contains(lowerCaseFilter)) {
                     return true;
                 }
@@ -221,10 +315,9 @@ public class dashboardController implements Initializable {
                 if (employee.getDate().toString().toLowerCase().contains(lowerCaseFilter)) {
                     return true;
                 }
-                return false; // Không khớp với bất kỳ trường nào
+                return false;
             });
 
-            // Cập nhật TableView với dữ liệu đã lọc
             SortedList<employeeData> sortedList = new SortedList<>(filteredList);
             sortedList.comparatorProperty().bind(addEmployee_tableView.comparatorProperty());
             addEmployee_tableView.setItems(sortedList);
@@ -235,185 +328,223 @@ public class dashboardController implements Initializable {
         Date date = new Date();
         java.sql.Date sqlDate = new java.sql.Date(date.getTime());
 
-        String sql = "INSERT INTO employee "
-                + "(employee_id,firstName,lastName,gender,phoneNum,position,image,date) "
-                + "VALUES(?,?,?,?,?,?,?,?)";
+        Alert alert;
 
-        connect = database.connectDB();
-
-        try {
-            Alert alert;
-            if (addEmployee_employeeID.getText().isEmpty()
-                    || addEmployee_firstName.getText().isEmpty()
-                    || addEmployee_lastName.getText().isEmpty()
-                    || addEmployee_gender.getSelectionModel().getSelectedItem() == null
-                    || addEmployee_phoneNum.getText().isEmpty()
-                    || addEmployee_position.getSelectionModel().getSelectedItem() == null
-                    || getData.path == null || getData.path == "") {
-                alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Error Message");
-                alert.setHeaderText(null);
-                alert.setContentText("Please fill all blank fields");
-                alert.showAndWait();
-            } else {
-                String check = "SELECT employee_id FROM employee WHERE employee_id = '"
-                        + addEmployee_employeeID.getText() + "'";
-
-                statement = connect.createStatement();
-                result = statement.executeQuery(check);
-
-                if (result.next()) {
-                    alert = new Alert(Alert.AlertType.ERROR);
-                    alert.setTitle("Error Message");
-                    alert.setHeaderText(null);
-                    alert.setContentText("Employee ID: " + addEmployee_employeeID.getText() + " was already exist!");
-                    alert.showAndWait();
-                } else {
-
-                    prepare = connect.prepareStatement(sql);
-                    prepare.setString(1, addEmployee_employeeID.getText());
-                    prepare.setString(2, addEmployee_firstName.getText());
-                    prepare.setString(3, addEmployee_lastName.getText());
-                    prepare.setString(4, (String) addEmployee_gender.getSelectionModel().getSelectedItem());
-                    prepare.setString(5, addEmployee_phoneNum.getText());
-                    prepare.setString(6, (String) addEmployee_position.getSelectionModel().getSelectedItem());
-
-                    String uri = getData.path;
-                    uri = uri.replace("\\", "\\\\");
-
-                    prepare.setString(7, uri);
-                    prepare.setString(8, String.valueOf(sqlDate));
-                    prepare.executeUpdate();
-
-
-                    alert = new Alert(Alert.AlertType.INFORMATION);
-                    alert.setTitle("Information Message");
-                    alert.setHeaderText(null);
-                    alert.setContentText("Successfully Added!");
-                    alert.showAndWait();
-
-                    addEmployeeShowListData();
-                    addEmployeeResset();
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-
-    public void addEmployeeUpdate() {
-
-        String uri = getData.path;
-        uri = uri.replace("\\", "\\\\");
-
-        Date date = new Date();
-        java.sql.Date sqlDate = new java.sql.Date(date.getTime());
-
-        String sql = "UPDATE employee SET firstName = '"
-                + addEmployee_firstName.getText() + "', lastName = '"
-                + addEmployee_lastName.getText() + "', gender = '"
-                + addEmployee_gender.getSelectionModel().getSelectedItem() + "', phoneNum = '"
-                + addEmployee_phoneNum.getText() + "', position = '"
-                + addEmployee_position.getSelectionModel().getSelectedItem() + "', image = '"
-                + uri + "', date = '" + sqlDate + "' WHERE employee_id ='"
-                + addEmployee_employeeID.getText() + "'";
-
-        connect = database.connectDB();
-
-        try {
-            Alert alert;
-            if (addEmployee_employeeID.getText().isEmpty()
-                    || addEmployee_firstName.getText().isEmpty()
-                    || addEmployee_lastName.getText().isEmpty()
-                    || addEmployee_gender.getSelectionModel().getSelectedItem() == null
-                    || addEmployee_phoneNum.getText().isEmpty()
-                    || addEmployee_position.getSelectionModel().getSelectedItem() == null
-                    || getData.path == null || getData.path == "") {
-                alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Error Message");
-                alert.setHeaderText(null);
-                alert.setContentText("Please fill all blank fields");
-                alert.showAndWait();
-            } else {
-                alert = new Alert(Alert.AlertType.CONFIRMATION);
-                alert.setTitle("Cofirmation Message");
-                alert.setHeaderText(null);
-                alert.setContentText("Are you sure you want to UPDATE Employee ID: " + addEmployee_employeeID.getText() + "?");
-                Optional<ButtonType> option = alert.showAndWait();
-
-                if (option.get().equals(ButtonType.OK)) {
-                    statement = connect.createStatement();
-                    statement.executeUpdate(sql);
-
-
-                    String checkData = "SELECT * FROM employee WHERE employee_id = '"
-                            + addEmployee_employeeID.getText() + "'";
-
-                    prepare = connect.prepareStatement(checkData);
-                    result = prepare.executeQuery();
-
-                    alert = new Alert(Alert.AlertType.INFORMATION);
-                    alert.setTitle("Information Message");
-                    alert.setHeaderText(null);
-                    alert.setContentText("Successfully Updated!");
-                    alert.showAndWait();
-
-                    addEmployeeShowListData();
-                    addEmployeeResset();
-                }
-
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        // Kiểm tra trường dữ liệu bắt buộc
+        if (addEmployee_employeeID.getText().isEmpty()
+                || addEmployee_firstName.getText().isEmpty()
+                || addEmployee_lastName.getText().isEmpty()
+                || addEmployee_gender.getSelectionModel().getSelectedItem() == null
+                || addEmployee_phoneNum.getText().isEmpty()
+                || addEmployee_position.getSelectionModel().getSelectedItem() == null
+                || getData.path == null || getData.path.isEmpty()) {
+            alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error Message");
+            alert.setHeaderText(null);
+            alert.setContentText("Please fill all blank fields");
+            alert.showAndWait();
+            return;
         }
 
-    }
-
-
-    public void addEmployeeDelete() {
-        String sql = "DELETE FROM employee WHERE employee_id = ?";
-        try (Connection connect = database.connectDB();
-             PreparedStatement preparedStatement = connect.prepareStatement(sql)) {
-
-            Alert alert;
-            // Chỉ kiểm tra trường employee_id
-            if (addEmployee_employeeID.getText().isEmpty()) {
+        try {
+            if (client == null) {
                 alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Error Message");
+                alert.setTitle("Connection Error");
                 alert.setHeaderText(null);
-                alert.setContentText("Please enter employee ID");
+                alert.setContentText("Client is not connected to server.");
                 alert.showAndWait();
                 return;
             }
 
-            // Hiển thị hộp thoại xác nhận
-            alert = new Alert(Alert.AlertType.CONFIRMATION);
-            alert.setTitle("CONFIRMATION MESSAGE");
-            alert.setHeaderText(null);
-            alert.setContentText("Are you sure you want to DELETE Employee ID: " + addEmployee_employeeID.getText() + "?");
-            Optional<ButtonType> option = alert.showAndWait();
+            // Xây dựng dữ liệu gửi cho server (theo định dạng bạn muốn)
+            String uri = getData.path.replace("\\", "\\\\");
+            String data = String.join(",",
+                    addEmployee_employeeID.getText(),
+                    addEmployee_firstName.getText(),
+                    addEmployee_lastName.getText(),
+                    addEmployee_gender.getSelectionModel().getSelectedItem(),
+                    addEmployee_phoneNum.getText(),
+                    addEmployee_position.getSelectionModel().getSelectedItem(),
+                    uri,
+                    sqlDate.toString()
+            );
 
-            if (option.isPresent() && option.get() == ButtonType.OK) {
-                preparedStatement.setString(1, addEmployee_employeeID.getText());
-                preparedStatement.executeUpdate();
+            String request = "ADD_EMPLOYEE:" + data;
 
-                // Hiển thị thông báo thành công
+            // Gửi yêu cầu và nhận phản hồi
+            String response = client.sendRequest(request);
+
+            if ("SUCCESS".equalsIgnoreCase(response)) {
                 alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("Message");
+                alert.setTitle("Information Message");
                 alert.setHeaderText(null);
-                alert.setContentText("Successfully Delete!");
+                alert.setContentText("Successfully Added!");
                 alert.showAndWait();
 
-                // Làm mới giao diện
                 addEmployeeShowListData();
                 addEmployeeResset();
+
+            } else {
+                alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Error Message");
+                alert.setHeaderText(null);
+                alert.setContentText("Failed to add employee: " + response);
+                alert.showAndWait();
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             e.printStackTrace();
+            alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error Message");
+            alert.setHeaderText(null);
+            alert.setContentText("Network error: " + e.getMessage());
+            alert.showAndWait();
         }
     }
+
+    public void addEmployeeUpdate() {
+        String uri = getData.path;
+        if (uri != null) {
+            uri = uri.replace("\\", "\\\\");
+        }
+
+        if (addEmployee_employeeID.getText().isEmpty()
+                || addEmployee_firstName.getText().isEmpty()
+                || addEmployee_lastName.getText().isEmpty()
+                || addEmployee_gender.getSelectionModel().getSelectedItem() == null
+                || addEmployee_phoneNum.getText().isEmpty()
+                || addEmployee_position.getSelectionModel().getSelectedItem() == null
+                || uri == null || uri.isEmpty()) {
+
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error Message");
+            alert.setHeaderText(null);
+            alert.setContentText("Please fill all blank fields");
+            alert.showAndWait();
+            return;
+        }
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Confirmation Message");
+        alert.setHeaderText(null);
+        alert.setContentText("Are you sure you want to UPDATE Employee ID: " + addEmployee_employeeID.getText() + "?");
+        Optional<ButtonType> option = alert.showAndWait();
+
+        if (option.isPresent() && option.get() == ButtonType.OK) {
+            try {
+                if (client == null) {
+                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                    errorAlert.setTitle("Connection Error");
+                    errorAlert.setHeaderText(null);
+                    errorAlert.setContentText("Client is not connected to server.");
+                    errorAlert.showAndWait();
+                    return;
+                }
+
+                String gender = addEmployee_gender.getSelectionModel().getSelectedItem();
+                String position = addEmployee_position.getSelectionModel().getSelectedItem();
+
+                if (gender == null) gender = "";
+                if (position == null) position = "";
+
+                String data = String.join(",",
+                        addEmployee_employeeID.getText(),
+                        addEmployee_firstName.getText(),
+                        addEmployee_lastName.getText(),
+                        gender,
+                        addEmployee_phoneNum.getText(),
+                        position,
+                        uri,
+                        java.time.LocalDate.now().toString()
+                );
+
+                String request = "UPDATE_EMPLOYEE:" + data;
+
+                String response = client.sendRequest(request);
+
+                if ("SUCCESS".equalsIgnoreCase(response)) {
+                    Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                    successAlert.setTitle("Information Message");
+                    successAlert.setHeaderText(null);
+                    successAlert.setContentText("Successfully Updated!");
+                    successAlert.showAndWait();
+
+                    addEmployeeShowListData();
+                    addEmployeeResset();
+                } else {
+                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                    errorAlert.setTitle("Error Message");
+                    errorAlert.setHeaderText(null);
+                    errorAlert.setContentText("Update failed: " + response);
+                    errorAlert.showAndWait();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                errorAlert.setTitle("Error Message");
+                errorAlert.setHeaderText(null);
+                errorAlert.setContentText("Network error: " + e.getMessage());
+                errorAlert.showAndWait();
+            }
+        }
+    }
+
+    public void addEmployeeDelete() {
+        if (addEmployee_employeeID.getText().isEmpty()) {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error Message");
+            alert.setHeaderText(null);
+            alert.setContentText("Please enter employee ID");
+            alert.showAndWait();
+            return;
+        }
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("CONFIRMATION MESSAGE");
+        alert.setHeaderText(null);
+        alert.setContentText("Are you sure you want to DELETE Employee ID: " + addEmployee_employeeID.getText() + "?");
+        Optional<ButtonType> option = alert.showAndWait();
+
+        if (option.isPresent() && option.get() == ButtonType.OK) {
+            try {
+                if (client == null) {
+                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                    errorAlert.setTitle("Connection Error");
+                    errorAlert.setHeaderText(null);
+                    errorAlert.setContentText("Client is not connected to server.");
+                    errorAlert.showAndWait();
+                    return;
+                }
+
+                String request = "DELETE_EMPLOYEE:" + addEmployee_employeeID.getText();
+                String response = client.sendRequest(request);
+
+                if ("SUCCESS".equalsIgnoreCase(response)) {
+                    Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                    successAlert.setTitle("Information Message");
+                    successAlert.setHeaderText(null);
+                    successAlert.setContentText("Successfully Deleted!");
+                    successAlert.showAndWait();
+
+                    addEmployeeShowListData();
+                    addEmployeeResset();
+                } else {
+                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                    errorAlert.setTitle("Error Message");
+                    errorAlert.setHeaderText(null);
+                    errorAlert.setContentText("Delete failed: " + response);
+                    errorAlert.showAndWait();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                errorAlert.setTitle("Error Message");
+                errorAlert.setHeaderText(null);
+                errorAlert.setContentText("Network error: " + e.getMessage());
+                errorAlert.showAndWait();
+            }
+        }
+    }
+
     public void addEmployeeResset() {
         addEmployee_employeeID.setText("");
         addEmployee_firstName.setText("");
@@ -435,16 +566,13 @@ public class dashboardController implements Initializable {
             image = new Image(file.toURI().toString(), 134, 164, false, true);
             addEmployee_image.setImage(image);
         }
-
     }
 
     private String[] postionList = {"Marketer Coordinator", "Web Developer(Back End)", "Web Developer(Font End)", "App Developer"};
 
     public void addEmployeePositionList() {
         List<String> listP = new ArrayList<>();
-        for (String data : postionList) {
-            listP.add(data);
-        }
+        Collections.addAll(listP, postionList);
         ObservableList listData = FXCollections.observableArrayList(listP);
         addEmployee_position.setItems(listData);
     }
@@ -453,15 +581,12 @@ public class dashboardController implements Initializable {
 
     public void addEmployeeGenderList() {
         List<String> listG = new ArrayList<>();
-        for (String data : listGender) {
-            listG.add(data);
-        }
+        Collections.addAll(listG, listGender);
         ObservableList listData = FXCollections.observableArrayList(listG);
         addEmployee_gender.setItems(listData);
     }
 
     public ObservableList<employeeData> addEmployeeListData() {
-
         ObservableList<employeeData> listData = FXCollections.observableArrayList();
         String sql = "SELECT * FROM employee";
 
@@ -482,9 +607,7 @@ public class dashboardController implements Initializable {
                         result.getString("image"),
                         result.getDate("date"));
                 listData.add(employeeD);
-
             }
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -494,10 +617,8 @@ public class dashboardController implements Initializable {
     private ObservableList<employeeData> addEmployeeList;
 
     public void addEmployeeShowListData() {
-        // Lấy dữ liệu từ cơ sở dữ liệu
         addEmployeeList = addEmployeeListData();
 
-        // Gắn các cột với thuộc tính của employeeData
         addEmployee_col_employeeID.setCellValueFactory(new PropertyValueFactory<>("employeeId"));
         addEmployee_col_firstName.setCellValueFactory(new PropertyValueFactory<>("firstName"));
         addEmployee_col_lastName.setCellValueFactory(new PropertyValueFactory<>("lastName"));
@@ -506,13 +627,10 @@ public class dashboardController implements Initializable {
         addEmployee_col_position.setCellValueFactory(new PropertyValueFactory<>("position"));
         addEmployee_col_date.setCellValueFactory(new PropertyValueFactory<>("date"));
 
-        // Hiển thị dữ liệu lên TableView
         addEmployee_tableView.setItems(addEmployeeList);
 
-        // Gọi hàm tìm kiếm để đảm bảo bộ lọc được áp dụng ngay sau khi hiển thị dữ liệu
         addEmployeeSearch();
     }
-
     public void addEmployeeSelect() {
         employeeData employeeD = addEmployee_tableView.getSelectionModel().getSelectedItem();
         int num = addEmployee_tableView.getSelectionModel().getSelectedIndex();
@@ -530,9 +648,80 @@ public class dashboardController implements Initializable {
         image = new Image(uri, 134, 164, false, true);
         addEmployee_image.setImage(image);
     }
+    public void salaryUpdate() {
+        if (salary_employeeID.getText().isEmpty()
+                || salary_firstName.getText().isEmpty()
+                || salary_lastName.getText().isEmpty()
+                || salary_position.getText().isEmpty()
+                || salary_salary.getText().isEmpty()) {
+
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error Message");
+            alert.setHeaderText(null);
+            alert.setContentText("Please fill all required fields and select an employee first");
+            alert.showAndWait();
+            return;
+        }
+
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("Confirmation Message");
+        confirmAlert.setHeaderText(null);
+        confirmAlert.setContentText("Are you sure you want to UPDATE salary for Employee ID: " + salary_employeeID.getText() + "?");
+        Optional<ButtonType> option = confirmAlert.showAndWait();
+
+        if (option.isPresent() && option.get() == ButtonType.OK) {
+            try {
+                if (client == null) {
+                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                    errorAlert.setTitle("Connection Error");
+                    errorAlert.setHeaderText(null);
+                    errorAlert.setContentText("Client is not connected to server.");
+                    errorAlert.showAndWait();
+                    return;
+                }
+
+                // Chuẩn bị dữ liệu gửi lên server
+                String data = salary_employeeID.getText() + "," + salary_salary.getText();
+                String request = "UPDATE_SALARY:" + data;
+
+                String response = client.sendRequest(request);
+
+                if ("SUCCESS".equalsIgnoreCase(response)) {
+                    Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                    successAlert.setTitle("Information Message");
+                    successAlert.setHeaderText(null);
+                    successAlert.setContentText("Successfully Updated!");
+                    successAlert.showAndWait();
+
+                    salaryShowListData();
+                } else {
+                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                    errorAlert.setTitle("Error Message");
+                    errorAlert.setHeaderText(null);
+                    errorAlert.setContentText("Update failed: " + response);
+                    errorAlert.showAndWait();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                errorAlert.setTitle("Error Message");
+                errorAlert.setHeaderText(null);
+                errorAlert.setContentText("Network error: " + e.getMessage());
+                errorAlert.showAndWait();
+            }
+        }
+    }
+
+
+    public void salaryReset() {
+        salary_employeeID.setText("");
+        salary_firstName.setText("");
+        salary_lastName.setText("");
+        salary_position.setText("");
+        salary_salary.setText("");
+    }
 
     public ObservableList<employeeData> salaryListData() {
-
         ObservableList<employeeData> listData = FXCollections.observableArrayList();
 
         String sql = "SELECT * FROM employee_info";
@@ -560,6 +749,23 @@ public class dashboardController implements Initializable {
         }
         return listData;
     }
+    public void salarySelect() {
+
+        employeeData employeeD = salary_tableView.getSelectionModel().getSelectedItem();
+        int num = salary_tableView.getSelectionModel().getSelectedIndex();
+
+        if ((num - 1) < -1) {
+            return;
+        }
+
+        salary_employeeID.setText(String.valueOf(employeeD.getEmployeeId()));
+        salary_firstName.setText(employeeD.getFirstName());
+        salary_lastName.setText(employeeD.getLastName());
+        salary_position.setText(employeeD.getPosition());
+        salary_salary.setText(String.valueOf(employeeD.getSalary()));
+
+    }
+
 
     public ObservableList<employeeData> salaryList;
 
@@ -573,12 +779,13 @@ public class dashboardController implements Initializable {
         salary_col_salary.setCellValueFactory(new PropertyValueFactory<>("salary"));
 
         salary_tableView.setItems(salaryList);
-
     }
 
-
     public void displayUsername() {
-        username.setText(getData.username);
+        username.setText(Session.currentUser); // Sử dụng Session
+    }
+    public void defaultNav() {
+        home_btn.setStyle("-fx-background-color: linear-gradient(to bottom right, #23278f96, #2d645f);");
     }
 
     public void switchForm(ActionEvent event) {
@@ -590,6 +797,10 @@ public class dashboardController implements Initializable {
             home_btn.setStyle("-fx-background-color: linear-gradient(to bottom right, #23278f96, #2d645f);");
             addEmployee_btn.setStyle("-fx-background-color: transparent;");
             salary_btn.setStyle("-fx-background-color: transparent;");
+
+            homeTotalEmployees();
+            homeEmployeeTotalPresent();
+            homeTotalInactive();
         } else if (event.getSource() == addEmployee_btn) {
             home_form.setVisible(false);
             addEmployee_form.setVisible(true);
@@ -599,11 +810,9 @@ public class dashboardController implements Initializable {
             home_btn.setStyle("-fx-background-color: transparent;");
             salary_btn.setStyle("-fx-background-color: transparent;");
 
-            // Khởi tạo danh sách giới tính và vị trí
             addEmployeeGenderList();
             addEmployeePositionList();
 
-            // Hiển thị dữ liệu (đã bao gồm gọi addEmployeeSearch())
             addEmployeeShowListData();
         } else if (event.getSource() == salary_btn) {
             home_form.setVisible(false);
@@ -617,7 +826,6 @@ public class dashboardController implements Initializable {
             salaryShowListData();
         }
     }
-
 
     private double x = 0;
     private double y = 0;
@@ -672,14 +880,40 @@ public class dashboardController implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         displayUsername();
+        defaultNav();
 
-        // Khởi tạo danh sách vị trí và giới tính
         addEmployeePositionList();
         addEmployeeGenderList();
 
-        // Hiển thị dữ liệu và áp dụng bộ lọc
-        addEmployeeShowListData();
+        client = new EmployeeClient();
+        try {
+            client.connect("localhost", 12345);
+        } catch (IOException e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Connection Error");
+            alert.setHeaderText(null);
+            alert.setContentText("Cannot connect to server!");
+            alert.showAndWait();
+        }
 
+        homeTotalEmployees();
+        homeEmployeeTotalPresent();
+        homeTotalInactive();
+        homeChart();
+
+        addEmployeeShowListData();
         salaryShowListData();
+
+        applyAccessControl();
+    }
+
+    private void applyAccessControl() {
+        if (!"manager".equals(Session.currentRoler)) {
+            addEmployee_addBtn.setDisable(true);
+            addEmployee_updateBtn.setDisable(true);
+            addEmployee_deleteBtn.setDisable(true);
+            salary_updateBtn.setDisable(true);
+        }
     }
 }

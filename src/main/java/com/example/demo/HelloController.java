@@ -5,7 +5,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ResourceBundle;
-import javafx.event.ActionEvent;
+
+import com.example.demo.model.Session;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -14,7 +15,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
-import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.input.MouseEvent;
@@ -48,7 +48,7 @@ public class HelloController implements Initializable {
     private double y = 0;
     public void loginAdmin(){
 
-        String sql = "SELECT * FROM admin WHERE username = ? and password = ?";
+        String sql = "SELECT * FROM admin WHERE username = ? AND password = ?";
 
         connect = database.connectDB();
 
@@ -74,12 +74,14 @@ public class HelloController implements Initializable {
             result = prepare.executeQuery();
 
             if (result.next()) {
-                getData.username = usernameInput;
+                // ✅ Gán thông tin người dùng đăng nhập
+                Session.currentUser = usernameInput;
+                Session.currentRoler = result.getString("role"); // Lấy quyền từ DB
 
                 alert = new Alert(AlertType.INFORMATION);
                 alert.setTitle("Information Message");
                 alert.setHeaderText(null);
-                alert.setContentText("Successfully Login");
+                alert.setContentText("Successfully Login as " + Session.currentRoler);
                 alert.showAndWait();
 
                 loginBtn.getScene().getWindow().hide();
@@ -121,7 +123,6 @@ public class HelloController implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle rb) {
-        // TODO
     }
 
 }
