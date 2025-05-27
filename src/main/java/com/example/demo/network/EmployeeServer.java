@@ -14,6 +14,7 @@ public class EmployeeServer {
     private ExecutorService executorService;
 
     public EmployeeServer() {
+        //sử lí đồng thời nhiều kết nối TCP
         executorService = Executors.newFixedThreadPool(MAX_THREADS);
     }
 
@@ -112,43 +113,51 @@ public class EmployeeServer {
         }
 
         private boolean addEmployee(String data) {
-            try {
-                // nhận: employee_id,firstName,lastName,gender,phoneNum,position,image,date
-                String[] fields = data.split(",");
-                if (fields.length < 8) return false;
+            String[] fields = data.split(",");
+            if (fields.length < 8) return false;
 
-                Connection conn = database.connectDB();
-                conn.setAutoCommit(false); // Đảm bảo cả hai INSERT cùng thành công hoặc cùng rollback
+            try (Connection conn = database.connectDB()) {
+                conn.setAutoCommit(false); // Bắt đầu transaction
 
-                // INSERT vào bảng employee
                 String sql1 = "INSERT INTO employee(employee_id, firstName, lastName, gender, phoneNum, position, image, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-                PreparedStatement stmt1 = conn.prepareStatement(sql1);
-                for (int i = 0; i < 8; i++) {
-                    if (i == 7) {
-                        stmt1.setDate(8, java.sql.Date.valueOf(fields[7]));
-                    } else {
-                        stmt1.setString(i + 1, fields[i]);
-                    }
-                }
-
-                // INSERT vào bảng employee_info
                 String sql2 = "INSERT INTO employee_info(employee_id, firstName, lastName, position, salary, date) VALUES (?, ?, ?, ?, ?, ?)";
-                PreparedStatement stmt2 = conn.prepareStatement(sql2);
-                stmt2.setString(1, fields[0]);
-                stmt2.setString(2, fields[1]);
-                stmt2.setString(3, fields[2]);
-                stmt2.setString(4, fields[5]);
-                stmt2.setDouble(5, 0.0);
-                stmt2.setDate(6, java.sql.Date.valueOf(fields[7]));
 
-                int result1 = stmt1.executeUpdate();
-                int result2 = stmt2.executeUpdate();
+                try (
+                        PreparedStatement stmt1 = conn.prepareStatement(sql1);
+                        PreparedStatement stmt2 = conn.prepareStatement(sql2)
+                ) {
+                    // Thiết lập batch cho stmt1
+                    for (int i = 0; i < 8; i++) {
+                        if (i == 7)
+                            stmt1.setDate(8, java.sql.Date.valueOf(fields[7]));
+                        else
+                            stmt1.setString(i + 1, fields[i]);
+                    }
+                    stmt1.addBatch();
 
-                if (result1 > 0 && result2 > 0) {
-                    conn.commit();
-                    return true;
-                } else {
-                    conn.rollback();
+                    // Thiết lập batch cho stmt2
+                    stmt2.setString(1, fields[0]);
+                    stmt2.setString(2, fields[1]);
+                    stmt2.setString(3, fields[2]);
+                    stmt2.setString(4, fields[5]);
+                    stmt2.setDouble(5, 0.0); // default salary
+                    stmt2.setDate(6, java.sql.Date.valueOf(fields[7]));
+                    stmt2.addBatch();
+
+                    // Thực thi cả hai batch
+                    int[] results1 = stmt1.executeBatch();
+                    int[] results2 = stmt2.executeBatch();
+
+                    if (results1[0] > 0 && results2[0] > 0) {
+                        conn.commit();
+                        return true;
+                    } else {
+                        conn.rollback();
+                        return false;
+                    }
+                } catch (SQLException e) {
+                    conn.rollback(); // rollback nếu có lỗi trong batch
+                    e.printStackTrace();
                     return false;
                 }
             } catch (Exception e) {
@@ -178,8 +187,8 @@ public class EmployeeServer {
                 Connection conn = database.connectDB();
                 conn.setAutoCommit(false);
 
-                String sqlEmp = "UPDATE employee SET firstName=?, lastName=?, gender=?, phoneNum=?, position=?, image=?, date=? WHERE employee_id=?";
-                PreparedStatement stmtEmp = conn.prepareStatement(sqlEmp);
+                String sql = "UPDATE employee SET firstName=?, lastName=?, gender=?, phoneNum=?, position=?, image=?, date=? WHERE employee_id=?";
+                PreparedStatement stmtEmp = conn.prepareStatement(sql);
                 stmtEmp.setString(1, fields[1]);
                 stmtEmp.setString(2, fields[2]);
                 stmtEmp.setString(3, fields[3]);
@@ -190,16 +199,7 @@ public class EmployeeServer {
                 stmtEmp.setString(8, fields[0]);
                 int r1 = stmtEmp.executeUpdate();
 
-                String sqlInfo = "UPDATE employee_info SET firstName=?, lastName=?, position=?, salary=? WHERE employee_id=?";
-                PreparedStatement stmtInfo = conn.prepareStatement(sqlInfo);
-                stmtInfo.setString(1, fields[1]);
-                stmtInfo.setString(2, fields[2]);
-                stmtInfo.setString(3, fields[5]);
-                stmtInfo.setDouble(4, Double.parseDouble(fields[8]));
-                stmtInfo.setString(5, fields[0]);
-                int r2 = stmtInfo.executeUpdate();
-
-                if (r1 > 0 && r2 > 0) {
+                if (r1 > 0) {
                     conn.commit();
                     return true;
                 } else {
@@ -259,6 +259,7 @@ public class EmployeeServer {
         }
 
     }
+
     public static void main(String[] args) {
         EmployeeServer server = new EmployeeServer();
         server.start();

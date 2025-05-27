@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.util.ResourceBundle;
 
 import com.example.demo.model.Session;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -46,74 +47,91 @@ public class HelloController implements Initializable {
 
     private double x = 0;
     private double y = 0;
+
     public void loginAdmin(){
 
         String sql = "SELECT * FROM admin WHERE username = ? AND password = ?";
 
-        connect = database.connectDB();
+        // Kết nối DB
+        try (Connection connect = database.connectDB();
+             PreparedStatement prepare = connect.prepareStatement(sql)) {
 
-        try {
             String usernameInput = username.getText();
             String passwordInput = password.getText();
-            String hashedPassword = HashUtils.hashSHA256(passwordInput);
-
-            Alert alert;
 
             if (usernameInput.isEmpty() || passwordInput.isEmpty()) {
-                alert = new Alert(AlertType.ERROR);
-                alert.setTitle("Error Message");
-                alert.setHeaderText(null);
-                alert.setContentText("Please fill all blank fields");
-                alert.showAndWait();
+                showAlert(AlertType.ERROR, "Error Message", null, "Please fill all blank fields");
                 return;
             }
 
-            prepare = connect.prepareStatement(sql);
+            String hashedPassword = HashUtils.hashSHA256(passwordInput);
+
             prepare.setString(1, usernameInput);
             prepare.setString(2, hashedPassword);
-            result = prepare.executeQuery();
 
-            if (result.next()) {
-                // ✅ Gán thông tin người dùng đăng nhập
-                Session.currentUser = usernameInput;
-                Session.currentRoler = result.getString("role"); // Lấy quyền từ DB
+            try (ResultSet result = prepare.executeQuery()) {
+                if (result.next()) {
+                    // Lưu session
+                    Session.currentUser = usernameInput;
+                    Session.currentRoler = result.getString("role");
 
-                alert = new Alert(AlertType.INFORMATION);
-                alert.setTitle("Information Message");
-                alert.setHeaderText(null);
-                alert.setContentText("Successfully Login as " + Session.currentRoler);
-                alert.showAndWait();
+                    showAlert(AlertType.INFORMATION, "Information Message", null,
+                            "Successfully Login as " + Session.currentRoler);
 
-                loginBtn.getScene().getWindow().hide();
-                Parent root = FXMLLoader.load(getClass().getResource("dashboard.fxml"));
-                Stage stage = new Stage();
-                Scene scene = new Scene(root);
+                    // Đóng cửa sổ login hiện tại
+                    Stage loginStage = (Stage) loginBtn.getScene().getWindow();
+                    loginStage.close();
 
-                root.setOnMousePressed((MouseEvent event) -> {
-                    x = event.getSceneX();
-                    y = event.getSceneY();
-                });
+                    // Mở cửa sổ Dashboard mới trên JavaFX Application Thread
+                    Platform.runLater(() -> {
+                        try {
+                            FXMLLoader loader = new FXMLLoader(getClass().getResource("dashboard.fxml"));
+                            Parent root = loader.load();
 
-                root.setOnMouseDragged((MouseEvent event) -> {
-                    stage.setX(event.getScreenX() - x);
-                    stage.setY(event.getScreenY() - y);
-                });
+                            // Truyền thông tin session nếu cần
+                            dashboardController controller = loader.getController();
+//                            controller.setUserSession(Session.currentUser, Session.currentRoler);
 
-                stage.initStyle(StageStyle.TRANSPARENT);
-                stage.setScene(scene);
-                stage.show();
+                            Stage stage = new Stage();
+                            stage.initStyle(StageStyle.TRANSPARENT);
+                            stage.setScene(new Scene(root));
 
-            } else {
-                alert = new Alert(AlertType.ERROR);
-                alert.setTitle("Error Message");
-                alert.setHeaderText(null);
-                alert.setContentText("Wrong Username/Password");
-                alert.showAndWait();
+                            // Xử lý di chuyển cửa sổ không viền
+                            root.setOnMousePressed((MouseEvent event) -> {
+                                x = event.getSceneX();
+                                y = event.getSceneY();
+                            });
+
+                            root.setOnMouseDragged((MouseEvent event) -> {
+                                stage.setX(event.getScreenX() - x);
+                                stage.setY(event.getScreenY() - y);
+                            });
+
+                            stage.show();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            showAlert(AlertType.ERROR, "Error", null, "Cannot open dashboard window.");
+                        }
+                    });
+
+                } else {
+                    showAlert(AlertType.ERROR, "Error Message", null, "Wrong Username/Password");
+                }
             }
 
         } catch (Exception e) {
             e.printStackTrace();
+            showAlert(AlertType.ERROR, "Error Message", null, "Database error: " + e.getMessage());
         }
+    }
+
+    // Hàm tiện ích hiển thị alert
+    private void showAlert(AlertType type, String title, String header, String content) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 
 

@@ -801,6 +801,7 @@ public class dashboardController implements Initializable {
             homeTotalEmployees();
             homeEmployeeTotalPresent();
             homeTotalInactive();
+            homeChart();
         } else if (event.getSource() == addEmployee_btn) {
             home_form.setVisible(false);
             addEmployee_form.setVisible(true);
@@ -876,6 +877,18 @@ public class dashboardController implements Initializable {
     public void close() {
         System.exit(0);
     }
+
+    @FXML
+    void openNewDashboardWindow() throws IOException {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("dashboard.fxml"));
+        Parent root = loader.load();
+
+        Stage stage = new Stage();
+        stage.setTitle("Dashboard");
+        stage.setScene(new Scene(root));
+        stage.show();
+    }
+
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
