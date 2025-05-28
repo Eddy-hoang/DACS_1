@@ -6,7 +6,7 @@ public class HashUtils {
     public static void main(String[] args) {
         String password = "1";
         String hashed = hashSHA256(password);
-        System.out.println("SHA-256 if 123456: "+hashed);
+        System.out.println("SHA-256 if 1: "+hashed);
     }
     public static String hashSHA256(String input){
         try{

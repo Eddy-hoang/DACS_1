@@ -109,7 +109,7 @@ public class dashboardController implements Initializable {
     private Button home_btn;
 
     @FXML
-    private BarChart<?, ?> home_chart;
+    private BarChart<String, Number> home_chart;
 
     @FXML
     private AnchorPane home_form;
@@ -189,30 +189,38 @@ public class dashboardController implements Initializable {
     private EmployeeClient client;
 
     public void homeChart() {
-
         home_chart.getData().clear();
 
-        String sql = "SELECT date, COUNT(id) FROM employee GROUP BY date ORDER BY TIMESTAMP(date) ASC LIMIT 7";
-
-        connect = database.connectDB();
-
         try {
-            XYChart.Series chart = new XYChart.Series();
+            // Gửi yêu cầu lấy dữ liệu biểu đồ đến server
+            String response = client.sendRequest("GET_CHART_DATA");
 
-            prepare = connect.prepareStatement(sql);
-            result = prepare.executeQuery();
+            XYChart.Series<String, Number> chart = new XYChart.Series<>();
 
-            while (result.next()) {
-                chart.getData().add(new XYChart.Data(result.getString(1), result.getInt(2)));
+            if (response == null || response.startsWith("ERROR")) {
+                System.err.println("Lấy dữ liệu biểu đồ thất bại: " + response);
+                return;
+            }
+
+           String[] entries = response.split(";");
+
+            for (String entry : entries) {
+                if (entry.trim().isEmpty()) continue;
+                String[] parts = entry.split(",");
+                if (parts.length == 2) {
+                    String date = parts[0];
+                    int count = Integer.parseInt(parts[1]);
+                    chart.getData().add(new XYChart.Data<>(date, count));
+                }
             }
 
             home_chart.getData().add(chart);
 
-        } catch (Exception e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
+
 
     public void homeTotalEmployees() {
 
