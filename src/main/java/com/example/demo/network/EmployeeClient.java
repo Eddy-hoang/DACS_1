@@ -18,8 +18,4 @@ public class EmployeeClient {
         out.println(request);
         return in.readLine();
     }
-
-    public void disconnect() throws IOException {
-        if (socket != null) socket.close();
-    }
 }

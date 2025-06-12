@@ -1,5 +1,8 @@
-package com.example.demo;
+package com.example.demo.controller;
 
+import com.example.demo.model.database;
+import com.example.demo.model.employeeData;
+import com.example.demo.model.getData;
 import com.example.demo.model.Session;
 import com.example.demo.network.EmployeeClient;
 import javafx.collections.FXCollections;
@@ -193,7 +196,7 @@ public class dashboardController implements Initializable {
 
         try {
             // Gửi yêu cầu lấy dữ liệu biểu đồ đến server
-            String response = client.sendRequest("GET_CHART_DATA");
+            String response = client.sendRequest("GET_CHART_DATA:");
 
             XYChart.Series<String, Number> chart = new XYChart.Series<>();
 
@@ -202,7 +205,7 @@ public class dashboardController implements Initializable {
                 return;
             }
 
-           String[] entries = response.split(";");
+            String[] entries = response.split(";");
 
             for (String entry : entries) {
                 if (entry.trim().isEmpty()) continue;
@@ -223,68 +226,61 @@ public class dashboardController implements Initializable {
 
 
     public void homeTotalEmployees() {
+        try{
+            String respons = client.sendRequest("GET_TOTAL_EMPLOYEES:");
 
-        String sql = "SELECT COUNT(id) FROM employee";
-
-        connect = database.connectDB();
-        int countData = 0;
-        try {
-
-            prepare = connect.prepareStatement(sql);
-            result = prepare.executeQuery();
-
-            while (result.next()) {
-                countData = result.getInt("COUNT(id)");
+            if(respons != null){
+                String[] parts = respons.split(":");
+                if(parts.length > 1) {
+                    String totalEmployees = parts[1].trim();
+                    home_totalEmployees.setText(totalEmployees);
+                }else{
+                    System.out.println("Server return invalid data: "+respons);
+                }
+            }else{
+                System.out.println("Error: " + respons);
             }
-
-            home_totalEmployees.setText(String.valueOf(countData));
-
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
 
     public void homeEmployeeTotalPresent() {
-
-        String sql = "SELECT COUNT(id) FROM employee_info";
-
-        connect = database.connectDB();
-        int countData = 0;
-        try {
-            statement = connect.createStatement();
-            result = statement.executeQuery(sql);
-
-            while (result.next()) {
-                countData = result.getInt("COUNT(id)");
+        try{
+            String respons = client.sendRequest("GET_TOTAL_PRESENT:");
+            if(respons != null){
+                String[] parts = respons.split(":");
+                if(parts.length > 1){
+                    String totalPresent = parts[1].trim();
+                    home_totalPresents.setText(totalPresent);
+                }else{
+                    System.out.println("Server return invalid data: "+respons);
+                }
+            }else{
+                System.out.println("Error: "+respons);
             }
-            home_totalPresents.setText(String.valueOf(countData));
-
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
 
     public void homeTotalInactive() {
-
-        String sql = "SELECT COUNT(id) FROM employee_info WHERE salary = '0.0'";
-
-        connect = database.connectDB();
-        int countData = 0;
-        try {
-            prepare = connect.prepareStatement(sql);
-            result = prepare.executeQuery();
-
-            while (result.next()) {
-                countData = result.getInt("COUNT(id)");
+        try{
+            String respons = client.sendRequest("GET_TOTAL_INACTIVE:");
+            if(respons != null){
+                String[] parts = respons.split(":");
+                if(parts.length>1){
+                    String totalInactive = parts[1].trim();
+                    home_totalInactiveEm.setText(totalInactive);
+                }else{
+                    System.out.println("Server return invalid data: "+respons);
+                }
+            }else {
+                System.out.println("ERROR: "+respons);
             }
-            home_totalInactiveEm.setText(String.valueOf(countData));
-
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
 
 
@@ -795,6 +791,14 @@ public class dashboardController implements Initializable {
     public void defaultNav() {
         home_btn.setStyle("-fx-background-color: linear-gradient(to bottom right, #23278f96, #2d645f);");
     }
+    private void applyAccessControl() {
+        if (!"manager".equals(Session.currentRoler)) {
+            addEmployee_addBtn.setDisable(true);
+            addEmployee_updateBtn.setDisable(true);
+            addEmployee_deleteBtn.setDisable(true);
+            salary_updateBtn.setDisable(true);
+        }
+    }
 
     public void switchForm(ActionEvent event) {
         if (event.getSource() == home_btn) {
@@ -849,7 +853,7 @@ public class dashboardController implements Initializable {
             if (option.get().equals(ButtonType.OK)) {
 
                 logout.getScene().getWindow().hide();
-                Parent root = FXMLLoader.load(getClass().getResource("hello-view.fxml"));
+                Parent root = FXMLLoader.load(getClass().getResource("/com/example/demo/hello-view.fxml"));
                 Stage stage = new Stage();
                 Scene scene = new Scene(root);
 
@@ -886,18 +890,6 @@ public class dashboardController implements Initializable {
         System.exit(0);
     }
 
-    @FXML
-    void openNewDashboardWindow() throws IOException {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("dashboard.fxml"));
-        Parent root = loader.load();
-
-        Stage stage = new Stage();
-        stage.setTitle("Dashboard");
-        stage.setScene(new Scene(root));
-        stage.show();
-    }
-
-
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         displayUsername();
@@ -929,12 +921,5 @@ public class dashboardController implements Initializable {
         applyAccessControl();
     }
 
-    private void applyAccessControl() {
-        if (!"manager".equals(Session.currentRoler)) {
-            addEmployee_addBtn.setDisable(true);
-            addEmployee_updateBtn.setDisable(true);
-            addEmployee_deleteBtn.setDisable(true);
-            salary_updateBtn.setDisable(true);
-        }
-    }
+
 }
