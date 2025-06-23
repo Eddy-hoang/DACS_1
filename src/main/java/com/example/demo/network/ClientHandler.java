@@ -1,6 +1,9 @@
 package com.example.demo.network;
 
 import com.example.demo.model.database;
+import com.example.demo.model.employeeData;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -36,7 +39,6 @@ public class ClientHandler implements Runnable {
                 String[] parts = request.split(":", 2);
 
                 if (parts.length < 2) {
-                    // Nếu yêu cầu không có đủ thông tin (command: data)
                     out.println("ERROR:Invalid request format");
                     continue;
                 }
@@ -45,6 +47,9 @@ public class ClientHandler implements Runnable {
                 String data = parts[1];
 
                 switch (command) {
+                    case "LOGIN_ADMIN" :
+                        loginAdmin(data);
+                        break;
                     case "ADD_EMPLOYEE":
                         if (addEmployee(data)) {
                             out.println("SUCCESS");
@@ -88,6 +93,12 @@ public class ClientHandler implements Runnable {
                     case "GET_TOTAL_INACTIVE":
                         homeTotalInactive();
                         break;
+                    case "GET_LIST_DATA":
+                        getListData();
+                        break;
+                    case "GET_LIST_DATA_SALARY":
+                        getListDataSalary();
+                        break;
                     default:
                         out.println("ERROR:Unknown command");
                 }
@@ -102,6 +113,110 @@ public class ClientHandler implements Runnable {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void loginAdmin(String data) {
+        try {
+            if (data == null || !data.contains(",")) {
+                out.println("ERROR:Invalid login format");
+                return;
+            }
+
+            String[] credentials = data.split(",", 2);
+            String username = credentials[0].trim();
+            String hashedPassword = credentials[1].trim();
+
+            try (Connection conn = database.connectDB();
+                 PreparedStatement stmt = conn.prepareStatement("SELECT role FROM admin WHERE username = ? AND password = ?")) {
+
+                stmt.setString(1, username);
+                stmt.setString(2, hashedPassword);
+
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        String role = rs.getString("role");
+                        out.println("SUCCESS:" + role);
+                    } else {
+                        out.println("FAIL");
+                    }
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                out.println("ERROR:" + e.getMessage());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            out.println("ERROR:Server-side login error");
+        }
+    }
+
+
+    private void getListDataSalary() {
+        String sql = "SELECT * FROM employee_info";
+        try(Connection conn = database.connectDB();
+            PreparedStatement prepare = conn.prepareStatement(sql);
+            ResultSet result = prepare.executeQuery()){
+
+            StringBuilder response = new StringBuilder();
+
+            boolean first  = true;
+            while(result.next()){
+                if (!first) response.append(";");
+                first = false;
+
+                response.append(result.getInt("employee_id")).append(",")
+                        .append(result.getString("firstName")).append(",")
+                        .append(result.getString("lastName")).append(",")
+                        .append(result.getString("position")).append(",")
+                        .append(result.getString("salary"));
+            }
+
+            if(response.length() == 0){
+                out.println("No employee data found");
+            }else {
+                out.println(response.toString());
+            }
+        } catch (SQLException e) {
+            out.println("Get employee list failed");
+            e.printStackTrace();
+        }
+    }
+
+    private void getListData() {
+        String sql = "SELECT * FROM employee";
+
+        try(Connection conn = database.connectDB();
+            PreparedStatement prepare = conn.prepareStatement(sql);
+            ResultSet result = prepare.executeQuery()){
+
+            StringBuilder response = new StringBuilder();
+
+            boolean first  = true;
+            while(result.next()){
+                if (!first) response.append(";");
+                first = false;
+
+                response.append(result.getInt("employee_id")).append(",")
+                        .append(result.getString("firstName")).append(",")
+                        .append(result.getString("lastName")).append(",")
+                        .append(result.getString("gender")).append(",")
+                        .append(result.getString("phoneNum")).append(",")
+                        .append(result.getString("position")).append(",")
+                        .append(result.getString("image")).append(",")
+                        .append(result.getDate("date"));
+            }
+
+            if(response.length() == 0){
+                out.println("No employee data found");
+            }else {
+                out.println(response.toString());
+            }
+        } catch (SQLException e) {
+            out.println("Get employee list failed");
+            e.printStackTrace();
         }
     }
 
@@ -171,7 +286,7 @@ public class ClientHandler implements Runnable {
             while (rs.next()) {
                 result.append(rs.getString("date")).append(",").append(rs.getInt(2)).append(";");
             }
-            out.println(result.toString());  // Trả về dữ liệu dạng chuỗi cho client
+            out.println(result.toString());
             out.flush();
             return true;
 
@@ -187,100 +302,87 @@ public class ClientHandler implements Runnable {
         String[] fields = data.split(",");
         if (fields.length < 8) return false;
 
-        try (Connection conn = database.connectDB()) {
+        String sql1 = "INSERT INTO employee(employee_id, firstName, lastName, gender, phoneNum, position, image, date) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql2 = "INSERT INTO employee_info(employee_id, firstName, lastName, position, salary, date) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = database.connectDB();
+             PreparedStatement stmt1 = conn.prepareStatement(sql1);
+             PreparedStatement stmt2 = conn.prepareStatement(sql2)) {
             conn.setAutoCommit(false);
 
-            String sql1 = "INSERT INTO employee(employee_id, firstName, lastName, gender, phoneNum, position, image, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            String sql2 = "INSERT INTO employee_info(employee_id, firstName, lastName, position, salary, date) VALUES (?, ?, ?, ?, ?, ?)";
+            stmt1.setString(1, fields[0]);
+            stmt1.setString(2, fields[1]);
+            stmt1.setString(3, fields[2]);
+            stmt1.setString(4, fields[3]);
+            stmt1.setString(5, fields[4]);
+            stmt1.setString(6, fields[5]);
+            stmt1.setString(7, fields[6]);
+            stmt1.setDate(8, java.sql.Date.valueOf(fields[7]));
 
-            try (PreparedStatement stmt1 = conn.prepareStatement(sql1);
-                 PreparedStatement stmt2 = conn.prepareStatement(sql2)) {
+            int rows1 = stmt1.executeUpdate();
 
-                for (int i = 0; i < 7; i++) {
-                    stmt1.setString(i + 1, fields[i]);
-                }
-                stmt1.setDate(8, java.sql.Date.valueOf(fields[7]));
-                stmt1.addBatch();
+            stmt2.setString(1, fields[0]);
+            stmt2.setString(2, fields[1]);
+            stmt2.setString(3, fields[2]);
+            stmt2.setString(4, fields[5]);
+            stmt2.setDouble(5, 0.0);
+            stmt2.setDate(6, java.sql.Date.valueOf(fields[7]));
 
-                stmt2.setString(1, fields[0]);
-                stmt2.setString(2, fields[1]);
-                stmt2.setString(3, fields[2]);
-                stmt2.setString(4, fields[5]);
-                stmt2.setDouble(5, 0.0);
-                stmt2.setDate(6, java.sql.Date.valueOf(fields[7]));
-                stmt2.addBatch();
+            int rows2 = stmt2.executeUpdate();
 
-                int[] results1 = stmt1.executeBatch();
-                int[] results2 = stmt2.executeBatch();
-
-                if (results1.length > 0 && results1[0] > 0 && results2.length > 0 && results2[0] > 0) {
-                    conn.commit();
-                    return true;
-                } else {
-                    conn.rollback();
-                    return false;
-                }
-            } catch (SQLException e) {
+            if (rows1 > 0 && rows2 > 0) {
+                conn.commit();
+                return true;
+            } else {
                 conn.rollback();
-                e.printStackTrace();
                 return false;
             }
+
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
     }
+
 
     public boolean deleteEmployee(String employeeId) {
-        Connection con = null;
-        try {
-            con = database.connectDB();
+        String sql1 = "DELETE FROM employee_info WHERE employee_id = ?";
+        String sql2 = "DELETE FROM employee WHERE employee_id = ?";
+
+        try (Connection con = database.connectDB();
+             PreparedStatement stmt1 = con.prepareStatement(sql1);
+             PreparedStatement stmt2 = con.prepareStatement(sql2)) {
             con.setAutoCommit(false);
 
-            String sqlDeleteInfo = "DELETE FROM employee_info WHERE employee_id = ?";
-            try (PreparedStatement stmtInfo = con.prepareStatement(sqlDeleteInfo)) {
-                stmtInfo.setString(1, employeeId);
-                stmtInfo.executeUpdate();
-            }
+            stmt1.setString(1, employeeId);
+            stmt1.executeUpdate();
 
-            String sqlDeleteEmp = "DELETE FROM employee WHERE employee_id = ?";
-            int affectedRows;
-            try (PreparedStatement stmtEmp = con.prepareStatement(sqlDeleteEmp)) {
-                stmtEmp.setString(1, employeeId);
-                affectedRows = stmtEmp.executeUpdate();
-            }
+            stmt2.setString(1, employeeId);
+            int rows = stmt2.executeUpdate();
 
-            con.commit();
-            return affectedRows > 0;
+            if (rows > 0) {
+                con.commit();
+                return true;
+            } else {
+                con.rollback();
+                return false;
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
-            if (con != null) {
-                try {
-                    con.rollback();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
             return false;
-        } finally {
-            if (con != null) {
-                try {
-                    con.setAutoCommit(true);
-                    con.close();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
         }
     }
 
+
+
     private boolean updateEmployee(String data) {
-        try {
+        try(Connection conn = database.connectDB();) {
             String[] fields = data.split(",");
             if (fields.length < 8) return false;
 
-            Connection conn = database.connectDB();
             conn.setAutoCommit(false);
 
             String sql = "UPDATE employee SET firstName=?, lastName=?, gender=?, phoneNum=?, position=?, image=?, date=? WHERE employee_id=?";
@@ -328,29 +430,6 @@ public class ClientHandler implements Runnable {
         } catch (Exception e) {
             e.printStackTrace();
             return false;
-        }
-    }
-
-    private String getAllEmployees() {
-        try {
-            StringBuilder result = new StringBuilder();
-            String sql = "SELECT employee_id, firstName, lastName, gender, phoneNum, position, image, date FROM employee";
-            PreparedStatement stmt = database.connectDB().prepareStatement(sql);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                result.append(rs.getString("employee_id")).append(",");
-                result.append(rs.getString("firstName")).append(",");
-                result.append(rs.getString("lastName")).append(",");
-                result.append(rs.getString("gender")).append(",");
-                result.append(rs.getString("phoneNum")).append(",");
-                result.append(rs.getString("position")).append(",");
-                result.append(rs.getString("image")).append(",");
-                result.append(rs.getDate("date")).append(";");
-            }
-            return result.toString();
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "ERROR:Get employee data failed";
         }
     }
 

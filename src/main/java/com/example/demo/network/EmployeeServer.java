@@ -8,7 +8,7 @@ public class EmployeeServer {
     private static final int PORT = 12345;
     public void main(String[] args) {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-            System.out.println("Server đang chạy trên cổng 5000...");
+            System.out.println("Server đang chạy trên cổng 12345...");
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();

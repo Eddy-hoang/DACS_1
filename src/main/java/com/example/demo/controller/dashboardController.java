@@ -193,33 +193,30 @@ public class dashboardController implements Initializable {
 
     public void homeChart() {
         home_chart.getData().clear();
-
-        try {
-            // Gửi yêu cầu lấy dữ liệu biểu đồ đến server
+        try{
             String response = client.sendRequest("GET_CHART_DATA:");
 
-            XYChart.Series<String, Number> chart = new XYChart.Series<>();
+            XYChart.Series<String,Number> chart = new XYChart.Series<>();
 
-            if (response == null || response.startsWith("ERROR")) {
-                System.err.println("Lấy dữ liệu biểu đồ thất bại: " + response);
-                return;
+            if(response == null || response.startsWith("ERROR") ){
+                System.out.println("Lấy dữ liệu thất bại: "+response);
             }
 
-            String[] entries = response.split(";");
+            String [] entries = response.split(";");
 
-            for (String entry : entries) {
-                if (entry.trim().isEmpty()) continue;
-                String[] parts = entry.split(",");
-                if (parts.length == 2) {
+            for(String entry : entries){
+                if(entry.trim().isEmpty()) continue;
+                String [] parts = entry.split(",");
+                if(parts.length == 2){
                     String date = parts[0];
                     int count = Integer.parseInt(parts[1]);
-                    chart.getData().add(new XYChart.Data<>(date, count));
+                    chart.getData().add(new XYChart.Data<>(date,count));
                 }
             }
 
             home_chart.getData().add(chart);
 
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -247,17 +244,17 @@ public class dashboardController implements Initializable {
 
     public void homeEmployeeTotalPresent() {
         try{
-            String respons = client.sendRequest("GET_TOTAL_PRESENT:");
-            if(respons != null){
-                String[] parts = respons.split(":");
+            String response = client.sendRequest("GET_TOTAL_PRESENT:");
+            if(response != null){
+                String[] parts = response.split(":");
                 if(parts.length > 1){
                     String totalPresent = parts[1].trim();
                     home_totalPresents.setText(totalPresent);
                 }else{
-                    System.out.println("Server return invalid data: "+respons);
+                    System.out.println("Server return invalid data: "+response);
                 }
             }else{
-                System.out.println("Error: "+respons);
+                System.out.println("Error: "+response);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -572,7 +569,7 @@ public class dashboardController implements Initializable {
         }
     }
 
-    private String[] postionList = {"Marketer Coordinator", "Web Developer(Back End)", "Web Developer(Font End)", "App Developer"};
+    private String[] postionList = {"Marketer Coordinator", "Web Developer(Back End)", "Web Developer(Font End)", "App Developer", "Data Analysis"};
 
     public void addEmployeePositionList() {
         List<String> listP = new ArrayList<>();
@@ -592,30 +589,32 @@ public class dashboardController implements Initializable {
 
     public ObservableList<employeeData> addEmployeeListData() {
         ObservableList<employeeData> listData = FXCollections.observableArrayList();
-        String sql = "SELECT * FROM employee";
-
-        connect = database.connectDB();
-
         try {
-            prepare = connect.prepareStatement(sql);
-            result = prepare.executeQuery();
-            employeeData employeeD;
+            String reponse = client.sendRequest("GET_LIST_DATA:");
 
-            while (result.next()) {
-                employeeD = new employeeData(result.getInt("employee_id"),
-                        result.getString("firstName"),
-                        result.getString("lastName"),
-                        result.getString("gender"),
-                        result.getString("phoneNum"),
-                        result.getString("position"),
-                        result.getString("image"),
-                        result.getDate("date"));
-                listData.add(employeeD);
+            if(reponse == null || reponse.startsWith("ERROR")){
+                System.out.println("ERROR: "+ reponse);
+                return listData;
             }
+
+            String[] records = reponse.split(";");
+
+            for(String record : records){
+                if (record.trim().isEmpty()) continue;
+                String[] fields = record.split(",");
+                if (fields.length >= 8) {
+                    employeeData employeeD = new employeeData(
+                            Integer.parseInt(fields[0]), fields[1], fields[2], fields[3], fields[4], fields[5], fields[6],
+                            java.sql.Date.valueOf(fields[7])
+                    );
+                    listData.add(employeeD);
+                }
+            }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return listData;
+        return  listData;
     }
 
     private ObservableList<employeeData> addEmployeeList;
@@ -684,7 +683,6 @@ public class dashboardController implements Initializable {
                     return;
                 }
 
-                // Chuẩn bị dữ liệu gửi lên server
                 String data = salary_employeeID.getText() + "," + salary_salary.getText();
                 String request = "UPDATE_SALARY:" + data;
 
@@ -723,6 +721,33 @@ public class dashboardController implements Initializable {
         salary_lastName.setText("");
         salary_position.setText("");
         salary_salary.setText("");
+    }
+
+    public ObservableList<employeeData> salaryListDataa(){
+        ObservableList<employeeData> listData = FXCollections.observableArrayList();
+
+        try{
+            String reponse = client.sendRequest("GET_lIST_DATA_SALARY:");
+
+            if(reponse == null || reponse.startsWith("ERROR")){
+                System.out.println("ERROR DATA SALARY:" +reponse);
+                return  listData;
+            }
+
+            String [] parts = reponse.split(";");
+            for(String part : parts){
+                if (part.trim().isEmpty()) continue;
+                String [] filed = part.split(",");
+                if(filed.length >= 5){
+                    employeeData employeeD = new employeeData(
+                            Integer.parseInt(filed[0]),filed[1],filed[2],filed[3],Double.parseDouble(filed[4]));
+                    listData.add(employeeD);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return  listData;
     }
 
     public ObservableList<employeeData> salaryListData() {
@@ -774,7 +799,7 @@ public class dashboardController implements Initializable {
     public ObservableList<employeeData> salaryList;
 
     public void salaryShowListData() {
-        salaryList = salaryListData();
+        salaryList = salaryListDataa();
 
         salary_col_employeeID.setCellValueFactory(new PropertyValueFactory<>("employeeId"));
         salary_col_firstName.setCellValueFactory(new PropertyValueFactory<>("firstName"));
@@ -786,7 +811,7 @@ public class dashboardController implements Initializable {
     }
 
     public void displayUsername() {
-        username.setText(Session.currentUser); // Sử dụng Session
+        username.setText(Session.currentUser);
     }
     public void defaultNav() {
         home_btn.setStyle("-fx-background-color: linear-gradient(to bottom right, #23278f96, #2d645f);");
